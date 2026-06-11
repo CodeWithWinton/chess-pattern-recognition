@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (too large for git)
+data/raw/*.parquet
+data/raw/*.csv
+data/raw/*.pgn
+data/processed/*.parquet
+data/processed/*.csv
+
+# Model files
+models/saved/*.pt
+models/saved/*.pth
+models/saved/*.h5
+models/saved/*.joblib
+models/saved/*.pkl
+models/saved/*.onnx
+
+# Results
+results/figures/*.png
+results/figures/*.jpg
+results/figures/*.svg
+
+# Logs
+logs/
+*.log
+wandb/
+mlruns/
+
+# Environment variables
+.env
+.env.local
