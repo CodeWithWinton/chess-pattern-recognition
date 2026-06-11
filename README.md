@@ -5,17 +5,17 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-In%20Development-yellow)
 
-## 📋 Overview
+## Overview
 
 A machine learning project that analyzes **14M+ high-level chess games** to:
 
-- 🔮 **Predict next moves** based on game history and board state
-- 📊 **Recognize patterns** in opening, middlegame, and endgame play
-- 🏆 **Identify best games** from the dataset for both Black and White
-- 🎓 **Teach optimal move combinations** through pattern analysis
-- 🤖 **Human vs AI training bot** for interactive practice
+- **Predict next moves** based on game history and board state
+- **Recognize patterns** in opening, middlegame, and endgame play
+- **Identify best games** from the dataset for both Black and White
+- **Teach optimal move combinations** through pattern analysis
+- **Human vs AI training bot** for interactive practice
 
-## 📊 Dataset
+## Dataset
 
 Using the [Chess Games Dataset](https://github.com/angeluriot/Chess_games) by Angel Uriot:
 
@@ -28,7 +28,7 @@ Using the [Chess Games Dataset](https://github.com/angeluriot/Chess_games) by An
 | Size | 7.31 GB |
 | Time Range | 1600–2024 |
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 chess-pattern-recognition/
@@ -129,7 +129,7 @@ chess-pattern-recognition/
 - **matplotlib / seaborn / plotly** – Visualization
 - **Streamlit** – Interactive UI for AI bot
 
-## 🚀 Getting Started
+## Getting Started
 
 ```bash
 # Clone the repository
@@ -150,7 +150,7 @@ python src/data/loader.py
 jupyter notebook notebooks/01_eda.ipynb
 ```
 
-## 📊 Key Features
+## Key Features
 
 | Feature | Description | Model |
 |---|---|---|
@@ -160,11 +160,11 @@ jupyter notebook notebooks/01_eda.ipynb
 | Opening Classifier | Classify openings from move sequences | LSTM |
 | AI Training Bot | Play against adaptive AI | Ensemble |
 
-## 📜 License
+## License
 
 MIT License
 
-## 🙏 Credits
+## Credits
 
 - Dataset: [Angel Uriot - Chess Games](https://github.com/angeluriot/Chess_games)
 - Chess Logic: [python-chess](https://python-chess.readthedocs.io/)
