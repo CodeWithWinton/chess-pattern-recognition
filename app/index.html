@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChessLens</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+  :root {
+    --bg: #1b1d23; --panel: #23262e; --panel2: #2a2e38;
+    --text: #d6d3cb; --dim: #8a8778; --accent: #c9a227;
+    --sq-light: #e8dcc3; --sq-dark: #7c9465; --hl: rgba(201,162,39,.55);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 Georgia, 'Times New Roman', serif; min-height: 100vh; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 18px 28px 10px; border-bottom: 1px solid #33363f; }
+  header h1 { font-size: 21px; font-weight: normal; letter-spacing: .5px; }
+  header h1 b { color: var(--accent); font-weight: normal; }
+  #status { margin-left: auto; font-size: 12.5px; color: var(--dim); font-family: monospace; }
+  #status::before { content: "●"; margin-right: 6px; color: #b3552e; }
+  #status.live::before { color: #5fa86a; }
+
+  main { display: flex; gap: 22px; padding: 22px 28px; flex-wrap: wrap; }
+  .board-wrap { display: flex; gap: 10px; }
+  #evalbar { width: 16px; height: 512px; background: #14161a; border: 1px solid #33363f; position: relative; }
+  #evalfill { position: absolute; bottom: 0; width: 100%; background: #cfcabc; height: 50%; transition: height .4s; }
+  #board { display: grid; grid-template-columns: repeat(8, 64px); grid-template-rows: repeat(8, 64px); border: 2px solid #14161a; user-select: none; }
+  .sq { display: flex; align-items: center; justify-content: center; font-size: 44px; cursor: pointer; position: relative; }
+  .sq.l { background: var(--sq-light); } .sq.d { background: var(--sq-dark); }
+  .sq.sel { box-shadow: inset 0 0 0 3px var(--accent); }
+  .sq.tgt::after { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--hl); position: absolute; }
+  .sq.cap::after { width: 54px; height: 54px; background: none; border: 4px solid var(--hl); }
+  .sq.last { background-image: linear-gradient(rgba(201,162,39,.28), rgba(201,162,39,.28)); }
+  .wp { color: #f5f1e6; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+  .bp { color: #1f2125; }
+  .coord { position: absolute; font-size: 10px; font-family: monospace; opacity: .55; }
+  .coord.f { bottom: 2px; right: 3px; } .coord.r { top: 2px; left: 3px; }
+
+  .controls { margin-top: 10px; display: flex; gap: 8px; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid #3a3e49; padding: 6px 13px; cursor: pointer; font: inherit; font-size: 13.5px; }
+  button:hover { border-color: var(--accent); }
+
+  aside { width: 360px; background: var(--panel); border: 1px solid #33363f; display: flex; flex-direction: column; min-height: 540px; }
+  .tabs { display: flex; border-bottom: 1px solid #33363f; }
+  .tabs div { padding: 9px 14px; font-size: 13px; cursor: pointer; color: var(--dim); }
+  .tabs div.on { color: var(--text); border-bottom: 2px solid var(--accent); }
+  .pane { padding: 14px; overflow-y: auto; flex: 1; display: none; }
+  .pane.on { display: block; }
+
+  #moves { font-family: monospace; font-size: 13.5px; display: grid; grid-template-columns: 34px 1fr 1fr; gap: 2px 6px; }
+  #moves .num { color: var(--dim); }
+  #moves span.mv { cursor: pointer; padding: 1px 5px; }
+  #moves span.mv.cur { background: var(--panel2); outline: 1px solid var(--accent); }
+
+  .pred { margin-bottom: 12px; }
+  .pred .lbl { display: flex; justify-content: space-between; font-family: monospace; font-size: 13.5px; margin-bottom: 3px; }
+  .pred .bar { height: 7px; background: #14161a; }
+  .pred .bar i { display: block; height: 100%; background: var(--accent); }
+  .note { font-size: 12px; color: var(--dim); font-style: italic; margin-top: 10px; }
+
+  #channels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  #channels figure { text-align: center; }
+  #channels canvas { width: 100%; image-rendering: pixelated; border: 1px solid #3a3e49; }
+  #channels figcaption { font-size: 11px; font-family: monospace; color: var(--dim); margin-top: 3px; }
+
+  textarea { width: 100%; height: 180px; background: #14161a; color: var(--text); border: 1px solid #3a3e49; font: 12.5px monospace; padding: 8px; resize: vertical; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Chess<b>Lens</b></h1>
+  <span style="color:var(--dim);font-size:13px">pattern recognition workbench</span>
+  <span id="status">engine offline — mock mode</span>
+</header>
+
+<main>
+  <section>
+    <div class="board-wrap">
+      <div id="evalbar"><div id="evalfill"></div></div>
+      <div id="board"></div>
+    </div>
+    <div class="controls">
+      <button id="bNew">New game</button>
+      <button id="bUndo">Undo</button>
+      <button id="bFlip">Flip</button>
+      <button id="bPrev">◀</button>
+      <button id="bNext">▶</button>
+      <span id="evaltxt" style="margin-left:auto;font-family:monospace;font-size:13px;color:var(--dim);align-self:center"></span>
+    </div>
+  </section>
+
+  <aside>
+    <div class="tabs">
+      <div class="on" data-p="pMoves">Moves</div>
+      <div data-p="pPred">Predictions</div>
+      <div data-p="pTensor">Model input</div>
+      <div data-p="pPgn">PGN</div>
+    </div>
+    <div class="pane on" id="pMoves"><div id="moves"></div></div>
+    <div class="pane" id="pPred">
+      <div id="preds"></div>
+      <p class="note">Mock mode: confidences are simulated until the model API is connected.</p>
+    </div>
+    <div class="pane" id="pTensor">
+      <div id="channels"></div>
+      <p class="note">The 12×8×8 binary tensor the network sees for the current position.</p>
+    </div>
+    <div class="pane" id="pPgn">
+      <textarea id="pgnBox" placeholder="Paste a PGN here to load a game..."></textarea>
+      <div class="controls">
+        <button id="bLoadPgn">Load</button>
+        <button id="bExportPgn">Export current</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const game = new Chess();
+const GLYPH = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+const PIECE_ORDER = 'PNBRQKpnbrqk';
+const VAL = {p:1,n:3,b:3,r:5,q:9,k:0};
+const FILES = 'abcdefgh';
+
+let flipped = false, selected = null, fens = [game.fen()], viewIdx = 0;
+
+function viewFen() { return fens[viewIdx]; }
+function atLatest() { return viewIdx === fens.length - 1; }
+
+function renderBoard() {
+  const pos = new Chess(viewFen());
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  const last = atLatest() ? game.history({verbose:true}).slice(-1)[0] : null;
+  const targets = selected ? game.moves({square:selected, verbose:true}) : [];
+
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const rank = flipped ? r : 7 - r;
+    const file = flipped ? 7 - f : f;
+    const name = FILES[file] + (rank + 1);
+    const sq = document.createElement('div');
+    sq.className = 'sq ' + ((rank + file) % 2 ? 'l' : 'd');
+    sq.dataset.sq = name;
+    const piece = pos.get(name);
+    if (piece) {
+      sq.innerHTML = `<span class="${piece.color==='w'?'wp':'bp'}">${GLYPH[piece.color==='w'?piece.type.toUpperCase():piece.type]}</span>`;
+    }
+    if (selected === name) sq.classList.add('sel');
+    const t = targets.find(m => m.to === name);
+    if (t) sq.classList.add('tgt', t.captured ? 'cap' : 'x');
+    if (last && (last.from === name || last.to === name)) sq.classList.add('last');
+    if (f === (flipped ? 7 : 0)) sq.insertAdjacentHTML('beforeend', `<span class="coord r">${rank+1}</span>`);
+    if (r === 7) sq.insertAdjacentHTML('beforeend', `<span class="coord f">${FILES[file]}</span>`);
+    sq.onclick = () => onSquare(name);
+    board.appendChild(sq);
+  }
+}
+
+function onSquare(name) {
+  if (!atLatest()) { viewIdx = fens.length - 1; selected = null; refresh(); return; }
+  const piece = game.get(name);
+  if (selected) {
+    const mv = game.move({from: selected, to: name, promotion: 'q'});
+    selected = null;
+    if (mv) { fens.push(game.fen()); viewIdx = fens.length - 1; }
+    refresh();
+    return;
+  }
+  if (piece && piece.color === game.turn()) { selected = name; renderBoard(); }
+}
+
+function renderMoves() {
+  const hist = game.history();
+  const el = document.getElementById('moves');
+  el.innerHTML = '';
+  for (let i = 0; i < hist.length; i += 2) {
+    el.insertAdjacentHTML('beforeend', `<span class="num">${i/2+1}.</span>`);
+    for (let j = i; j < Math.min(i+2, hist.length); j++) {
+      const s = document.createElement('span');
+      s.className = 'mv' + (viewIdx === j+1 ? ' cur' : '');
+      s.textContent = hist[j];
+      s.onclick = () => { viewIdx = j + 1; selected = null; refresh(); };
+      el.appendChild(s);
+    }
+    if (hist.length === i+1) el.insertAdjacentHTML('beforeend', '<span></span>');
+  }
+}
+
+function materialEval(fen) {
+  let score = 0;
+  for (const c of fen.split(' ')[0]) {
+    if (/[pnbrqk]/i.test(c)) score += (c === c.toUpperCase() ? 1 : -1) * VAL[c.toLowerCase()];
+  }
+  return score;
+}
+
+function renderEval() {
+  const e = materialEval(viewFen());
+  const pct = 50 + Math.max(-45, Math.min(45, e * 5));
+  document.getElementById('evalfill').style.height = pct + '%';
+  document.getElementById('evaltxt').textContent = (e > 0 ? '+' : '') + e.toFixed(1) + ' material';
+}
+
+// --- Backend stub: replace mock with real API when ready ---------------
+// Expected contract: POST /api/predict  {fen}  ->  {moves:[{san, confidence}]}
+async function getPredictions(fen) {
+  try {
+    const res = await fetch('/api/predict', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({fen})
+    });
+    if (!res.ok) throw 0;
+    document.getElementById('status').classList.add('live');
+    document.getElementById('status').textContent = 'engine connected';
+    return (await res.json()).moves;
+  } catch {
+    // Mock: sample legal moves with fake decreasing confidences
+    const pos = new Chess(fen);
+    const legal = pos.moves().sort(() => Math.random() - .5).slice(0, 3);
+    let c = 0.35 + Math.random() * 0.3;
+    return legal.map(san => { const m = {san, confidence: c}; c *= 0.45 + Math.random() * 0.2; return m; });
+  }
+}
+
+async function renderPredictions() {
+  const moves = await getPredictions(viewFen());
+  document.getElementById('preds').innerHTML = moves.map(m => `
+    <div class="pred">
+      <div class="lbl"><span>${m.san}</span><span>${(m.confidence*100).toFixed(1)}%</span></div>
+      <div class="bar"><i style="width:${m.confidence*100}%"></i></div>
+    </div>`).join('') || '<p class="note">Game over — no legal moves.</p>';
+}
+
+function renderChannels() {
+  const wrap = document.getElementById('channels');
+  wrap.innerHTML = '';
+  const rows = viewFen().split(' ')[0].split('/');
+  const grid = {}; PIECE_ORDER.split('').forEach(p => grid[p] = Array.from({length:8}, () => new Array(8).fill(0)));
+  rows.forEach((row, r) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += +ch;
+      else { grid[ch][7-r][f] = 1; f++; }
+    }
+  });
+  const names = ['P white pawn','N white knight','B white bishop','R white rook','Q white queen','K white king',
+                 'p black pawn','n black knight','b black bishop','r black rook','q black queen','k black king'];
+  PIECE_ORDER.split('').forEach((p, i) => {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 8;
+    const ctx = cv.getContext('2d');
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      ctx.fillStyle = grid[p][r][f] ? '#c9a227' : ((r+f) % 2 ? '#2a2e38' : '#23262e');
+      ctx.fillRect(f, 7-r, 1, 1);
+    }
+    const fig = document.createElement('figure');
+    fig.appendChild(cv);
+    fig.insertAdjacentHTML('beforeend', `<figcaption>ch${i} · ${names[i].split(' ')[0]}</figcaption>`);
+    fig.title = names[i];
+    wrap.appendChild(fig);
+  });
+}
+
+function refresh() {
+  renderBoard(); renderMoves(); renderEval(); renderPredictions(); renderChannels();
+}
+
+// Controls
+document.getElementById('bNew').onclick = () => { game.reset(); fens = [game.fen()]; viewIdx = 0; selected = null; refresh(); };
+document.getElementById('bUndo').onclick = () => { if (game.undo()) { fens.pop(); viewIdx = fens.length - 1; selected = null; refresh(); } };
+document.getElementById('bFlip').onclick = () => { flipped = !flipped; renderBoard(); };
+document.getElementById('bPrev').onclick = () => { if (viewIdx > 0) { viewIdx--; selected = null; refresh(); } };
+document.getElementById('bNext').onclick = () => { if (viewIdx < fens.length - 1) { viewIdx++; refresh(); } };
+document.getElementById('bLoadPgn').onclick = () => {
+  const tmp = new Chess();
+  if (!tmp.load_pgn(document.getElementById('pgnBox').value)) { alert('Could not parse that PGN.'); return; }
+  game.load_pgn(document.getElementById('pgnBox').value);
+  const replay = new Chess();
+  fens = [replay.fen()];
+  game.history().forEach(mv => { replay.move(mv); fens.push(replay.fen()); });
+  viewIdx = fens.length - 1; selected = null; refresh();
+};
+document.getElementById('bExportPgn').onclick = () => { document.getElementById('pgnBox').value = game.pgn(); };
+
+document.querySelectorAll('.tabs div').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tabs div, .pane').forEach(x => x.classList.remove('on'));
+  t.classList.add('on');
+  document.getElementById(t.dataset.p).classList.add('on');
+});
+
+refresh();
+</script>
+</body>
+</html>
